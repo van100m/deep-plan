@@ -26,6 +26,34 @@ from lib.config import load_session_config
 from lib.prompts import load_prompts, format_prompt
 
 
+def ensure_api_keys_loaded():
+    """Populate OPENAI_API_KEY / GEMINI_API_KEY from common .env files if unset.
+
+    Mirrors VAN's consult-pro loader so deep-plan reaches the keys stored in
+    ~/van-agents/.env without requiring them to be exported into the shell that
+    launched Claude Code.
+    """
+    wanted = ("OPENAI_API_KEY", "GEMINI_API_KEY")
+    if all(os.environ.get(k) for k in wanted):
+        return
+    for f in (Path.home() / ".env", Path.home() / "van-agents" / ".env", Path.home() / ".zshenv"):
+        if not f.exists():
+            continue
+        try:
+            for raw in f.read_text().splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                if line.startswith("export "):
+                    line = line[len("export "):]
+                key, _, val = line.partition("=")
+                key = key.strip()
+                if key in wanted and not os.environ.get(key):
+                    os.environ[key] = val.strip().strip('"').strip("'")
+        except OSError:
+            continue
+
+
 def load_plan(planning_dir: Path) -> str:
     """Load claude-plan.md from planning directory."""
     plan_file = planning_dir / "claude-plan.md"
@@ -151,7 +179,12 @@ def review_with_gemini(plan_content: str, system_prompt: str, user_prompt: str, 
 
 
 def review_with_openai(plan_content: str, system_prompt: str, user_prompt: str, config: dict) -> dict:
-    """Run OpenAI review."""
+    """Run OpenAI review via the Responses API.
+
+    gpt-5.x *-pro reasoning models are served only on /v1/responses, not
+    /v1/chat/completions (the latter returns 404 "not a chat model"), so this
+    uses client.responses.create().
+    """
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         return {"success": False, "provider": "openai", "error": "OPENAI_API_KEY not set"}
@@ -162,14 +195,15 @@ def review_with_openai(plan_content: str, system_prompt: str, user_prompt: str, 
         return {"success": False, "provider": "openai", "error": "openai package not installed"}
 
     model_name = os.environ.get("OPENAI_MODEL", config["models"]["chatgpt"])
-    timeout = config["llm_client"]["timeout_seconds"]
+    # pro reasoning over a full plan can run for several minutes; give it room
+    timeout = max(config["llm_client"]["timeout_seconds"], 900)
 
     try:
         client = OpenAI(api_key=api_key, timeout=timeout)
         response = call_with_retry(
-            lambda: client.chat.completions.create(
+            lambda: client.responses.create(
                 model=model_name,
-                messages=[
+                input=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ]
@@ -180,7 +214,7 @@ def review_with_openai(plan_content: str, system_prompt: str, user_prompt: str, 
             "success": True,
             "provider": "openai",
             "model": model_name,
-            "analysis": response.choices[0].message.content
+            "analysis": response.output_text
         }
     except Exception as e:
         return {
@@ -219,6 +253,7 @@ def write_review_file(reviews_dir: Path, provider: str, iteration: int, result: 
 
 
 def main():
+    ensure_api_keys_loaded()
     parser = argparse.ArgumentParser(description="Run plan reviews with available LLMs")
     parser.add_argument("--planning-dir", required=True, type=Path, help="Path to planning directory")
     parser.add_argument("--iteration", type=int, default=1, help="Review iteration number")

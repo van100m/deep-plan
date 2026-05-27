@@ -41,6 +41,27 @@ warnings=()
 gemini_auth="null"
 openai_auth="false"
 
+# VAN: source API keys from common .env files if not already exported.
+# Mirrors the consult-pro loader so keys stored in ~/van-agents/.env are
+# reachable without exporting them into the shell that launched Claude Code.
+# SECURITY: values are assigned to env vars, never echoed.
+# Written to be safe under `set -euo pipefail` (indirect expansion, guarded pipes).
+for env_file in "$HOME/.env" "$HOME/van-agents/.env" "$HOME/.zshenv"; do
+    [ -f "$env_file" ] || continue
+    for var in OPENAI_API_KEY GEMINI_API_KEY; do
+        cur="${!var:-}"
+        if [ -z "$cur" ]; then
+            line=$(grep -E "^(export )?${var}=" "$env_file" 2>/dev/null | head -1 || true)
+            if [ -n "$line" ]; then
+                val=$(printf '%s' "$line" | sed 's/^export //; s/^[^=]*=//; s/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//')
+                if [ -n "$val" ]; then
+                    export "$var=$val"
+                fi
+            fi
+        fi
+    done
+done
+
 # Check 1: uv must be installed
 if ! command -v uv &> /dev/null; then
     echo '{"valid": false, "errors": ["uv not installed. Install from https://docs.astral.sh/uv/"], "warnings": [], "gemini_auth": null, "openai_auth": false}'

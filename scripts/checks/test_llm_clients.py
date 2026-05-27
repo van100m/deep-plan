@@ -111,36 +111,53 @@ def test_gemini_vertex_ai(project: str, location: str, model: str) -> dict:
         }
 
 
-def test_openai(model: str) -> dict:
-    """Test OpenAI client and verify model can generate.
+def _load_openai_key():
+    """Populate OPENAI_API_KEY from common .env files if unset (VAN: ~/van-agents/.env)."""
+    if os.environ.get("OPENAI_API_KEY"):
+        return
+    from pathlib import Path
+    for f in (Path.home() / ".env", Path.home() / "van-agents" / ".env", Path.home() / ".zshenv"):
+        if not f.exists():
+            continue
+        try:
+            for raw in f.read_text().splitlines():
+                line = raw.strip()
+                if line.startswith("export "):
+                    line = line[len("export "):]
+                if line.startswith("OPENAI_API_KEY=") and "=" in line:
+                    os.environ["OPENAI_API_KEY"] = line.partition("=")[2].strip().strip('"').strip("'")
+                    return
+        except OSError:
+            continue
 
-    Uses a minimal chat completion call (~1 token) to verify the model is
-    actually accessible, not just listed in the catalog.
+
+def test_openai(model: str) -> dict:
+    """Verify the OpenAI model is accessible to this key.
+
+    Uses models.retrieve() (catalog + access check) rather than a generation
+    call: the configured model is a *-pro reasoning model that is billed per
+    call and slow, and this preflight runs on every /deep-plan launch.
 
     Args:
-        model: Model name from config (e.g., 'gpt-4o')
+        model: Model name from config (e.g., 'gpt-5.5-pro')
     """
     try:
         from openai import OpenAI, NotFoundError
 
+        _load_openai_key()
         client = OpenAI()
-        # Make a minimal chat completion to verify model is actually accessible
-        # Use max_completion_tokens (not max_tokens) for GPT-5.x and o-series models
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": "hi"}],
-            max_completion_tokens=5
-        )
+        # Catalog + access check; 404/NotFound if the key lacks access to the model
+        client.models.retrieve(model)
         return {
             "success": True,
             "model": model,
-            "test": "generation"
+            "test": "models.retrieve"
         }
     except NotFoundError as e:
         return {
             "success": False,
             "model": model,
-            "error": f"Model '{model}' not found or not accessible for generation",
+            "error": f"Model '{model}' not found or not accessible",
             "details": str(e)
         }
     except Exception as e:
