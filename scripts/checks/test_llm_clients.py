@@ -143,7 +143,7 @@ def test_openai(model: str) -> dict:
     call and slow, and this preflight runs on every /deep-plan launch.
 
     Args:
-        model: Model name from config (e.g., 'gpt-5.5-pro')
+        model: Model name from config (e.g., 'gpt-5.6-sol')
     """
     try:
         from openai import OpenAI, NotFoundError

@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "van-deep-plugins",
-  "description": "VAN fork of Pierce Lamb's deep-* plugins: deep-project/deep-plan/deep-implement add gpt-5.5-pro review via the OpenAI Responses API (key from ~/van-agents/.env). Upstream: github.com/piercelamb",
+  "description": "VAN fork of Pierce Lamb's deep-* plugins: deep-project/deep-plan/deep-implement add gpt-5.6-sol review via the OpenAI Responses API (key from ~/van-agents/.env). Upstream: github.com/piercelamb",
   "version": "1.1.4",
   "owner": {
     "name": "Pierce Lamb",

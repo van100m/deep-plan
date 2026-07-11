@@ -5,7 +5,7 @@
   },
   "vertex_ai": {
     "project": null,
-    "location": null,
+    "location": "us-central1",
     "_comment": "Required for Vertex AI: set project and location. Falls back to gcloud config (project) and GOOGLE_CLOUD_LOCATION env var."
   },
   "external_review": {
@@ -15,8 +15,8 @@
     "_comment_iterations": "feedback_iterations: number of review/integrate cycles (0 = skip external review entirely). More than 1 feedback iteration is not yet implemented"
   },
   "models": {
-    "gemini": "gemini-3-pro-preview",
-    "chatgpt": "gpt-5.5-pro",
+    "gemini": "",
+    "chatgpt": "gpt-5.6-sol",
     "_comment": "Models used for external plan review. chatgpt uses the OpenAI Responses API; *-pro reasoning models are valid here."
   },
   "llm_client": {
