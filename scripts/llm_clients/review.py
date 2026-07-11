@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["openai>=1.66.0", "google-genai>=1.0.0"]
+# ///
 """
 Unified plan review orchestrator.
 
